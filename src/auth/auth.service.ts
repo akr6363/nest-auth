@@ -85,6 +85,10 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
+  deleteRefreshToken(token: string) {
+    return this.prismaService.token.delete({ where: { token } });
+  }
+
   private async getRefreshToken(userId: string, agent: string): Promise<Token> {
     const _token = await this.prismaService.token.findFirst({
       where: {
