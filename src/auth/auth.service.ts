@@ -1,5 +1,7 @@
 import {
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -8,7 +10,7 @@ import { LoginDto, RegisterDto } from '@auth/dto';
 import { UserService } from '@user/user.service';
 import { Tokens } from '@auth/interfaces';
 import { compareSync } from 'bcrypt';
-import { Token, User } from '@prisma/client';
+import { Provider, Token, User } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@prisma/prisma.service';
 import { v4 } from 'uuid';
@@ -112,5 +114,27 @@ export class AuthService {
         userAgent: agent,
       },
     });
+  }
+
+  async googleAuth(email: string, agent: string) {
+    const userExist = await this.userService.findOne(email);
+    if (userExist) {
+      return this.generateTokens(userExist, agent);
+    }
+
+    const user = await this.userService
+      .save({ email, provider: Provider.GOOGLE })
+      .catch((err) => {
+        this.logger.error(err);
+        return null;
+      });
+    if (!user) {
+      throw new HttpException(
+        `Не получилось создать пользователя с email ${email} в GoogleAuth`,
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    return this.generateTokens(user, agent);
   }
 }

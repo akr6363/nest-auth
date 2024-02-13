@@ -6,17 +6,24 @@ import {
   Get,
   HttpStatus,
   Post,
+  Query,
+  Req,
   Res,
   UnauthorizedException,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { LoginDto, RegisterDto } from '@auth/dto';
 import { AuthService } from '@auth/auth.service';
 import { Tokens } from '@auth/interfaces';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { Cookie, Public, UserAgent } from '@common/decorators';
 import { UserResponse } from '@user/responses';
+import { GoogleGuard } from '@auth/guards/google.guard';
+import { HttpService } from '@nestjs/axios';
+import { map, mergeMap } from 'rxjs';
+import { handleTimeoutAndErrors } from '@common/helpers';
 
 const REFRESH_TOKEN = 'refreshtoken';
 
@@ -26,6 +33,7 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly httpService: HttpService,
   ) {}
 
   @UseInterceptors(ClassSerializerInterceptor)
@@ -110,5 +118,39 @@ export class AuthController {
     });
 
     res.status(HttpStatus.CREATED).json({ accessToken: tokens.accessToken });
+  }
+
+  @UseGuards(GoogleGuard)
+  @Get('google')
+  googleAuth() {}
+
+  @UseGuards(GoogleGuard)
+  @Get('google/callback')
+  googleAuthCallback(@Req() req: Request, @Res() res: Response) {
+    const token = req.user['accessToken'];
+    return res.redirect(
+      `http://localhost:3000/api/auth/success?token=${token}`,
+    );
+  }
+
+  @Get('success')
+  success(
+    @Query('token') token: string,
+    @UserAgent() agent: string,
+    @Res() res: Response,
+  ) {
+    return this.httpService
+      .get(
+        `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`,
+      )
+      .pipe(
+        mergeMap(({ data: { email } }) =>
+          this.authService.googleAuth(email, agent),
+        ),
+        map((data) => {
+          this.setRefreshTokenToCookie(data, res);
+        }),
+        handleTimeoutAndErrors(),
+      );
   }
 }
