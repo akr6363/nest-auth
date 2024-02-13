@@ -15,17 +15,30 @@ export class UserService {
     private readonly configService: ConfigService,
   ) {}
 
-  save(user: Partial<User>) {
+  async save(user: Partial<User>) {
     const hashedPassword = user?.password
       ? this.hashPassword(user.password)
       : null;
-    return this.prismaService.user.create({
-      data: {
+
+    const savedUser = await this.prismaService.user.upsert({
+      where: {
+        email: user.email,
+      },
+      update: {
+        provider: user.provider,
+        password: hashedPassword,
+        roles: user.roles,
+      },
+      create: {
         email: user.email,
         password: hashedPassword,
         roles: ['USER'],
+        provider: user.provider,
       },
     });
+
+    await this.cacheManager.set(savedUser.id, savedUser);
+    await this.cacheManager.set(savedUser.email, savedUser);
   }
 
   async findOne(idOrEmail: string, isReset = false) {
@@ -51,6 +64,8 @@ export class UserService {
 
   delete(id: string, user: JwtPayload) {
     if (user.id !== id && !user.roles.includes(Role.ADMIN)) {
+      console.log(user.id);
+      console.log(id);
       throw new ForbiddenException();
     }
     return this.prismaService.user.delete({

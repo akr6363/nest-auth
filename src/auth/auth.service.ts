@@ -116,21 +116,27 @@ export class AuthService {
     });
   }
 
-  async googleAuth(email: string, agent: string) {
+  async providerAuth(email: string, agent: string, provider: Provider) {
     const userExist = await this.userService.findOne(email);
     if (userExist) {
-      return this.generateTokens(userExist, agent);
+      const user = await this.userService
+        .save({ email, provider })
+        .catch((err) => {
+          this.logger.error(err);
+          return null;
+        });
+      return this.generateTokens(user, agent);
     }
 
     const user = await this.userService
-      .save({ email, provider: Provider.GOOGLE })
+      .save({ email, provider })
       .catch((err) => {
         this.logger.error(err);
         return null;
       });
     if (!user) {
       throw new HttpException(
-        `Не получилось создать пользователя с email ${email} в GoogleAuth`,
+        `Не получилось создать пользователя с email ${email} в ${provider.toLowerCase()}Auth`,
         HttpStatus.BAD_REQUEST,
       );
     }
