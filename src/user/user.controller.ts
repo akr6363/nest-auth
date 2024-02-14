@@ -1,4 +1,5 @@
 import {
+  Body,
   ClassSerializerInterceptor,
   Controller,
   Delete,
@@ -6,6 +7,7 @@ import {
   Inject,
   Param,
   ParseUUIDPipe,
+  Put,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
@@ -14,7 +16,7 @@ import { UserResponse } from '@user/responses';
 import { CurrentUser, Roles } from '@common/decorators';
 import { JwtPayload } from '@auth/interfaces';
 import { RolesGuard } from '@auth/guards/role.quard';
-import { Role } from '@prisma/client';
+import { Role, User } from '@prisma/client';
 import { Cache, CACHE_MANAGER } from '@nestjs/cache-manager';
 
 @Controller('user')
@@ -50,5 +52,12 @@ export class UserController {
   @Get()
   me(@CurrentUser() user: JwtPayload) {
     return user;
+  }
+
+  @UseInterceptors(ClassSerializerInterceptor)
+  @Put()
+  async updateUser(@Body() body: Partial<User>) {
+    const user = await this.userService.save(body);
+    return new UserResponse(user);
   }
 }

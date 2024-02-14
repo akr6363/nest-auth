@@ -15,6 +15,9 @@ export class UserResponse implements User {
   roles: Role[];
 
   @Exclude()
+  isBlocked: boolean;
+
+  @Exclude()
   provider: Provider;
 
   constructor(user: User) {

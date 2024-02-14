@@ -25,9 +25,10 @@ export class UserService {
         email: user.email,
       },
       update: {
-        provider: user.provider,
-        password: hashedPassword,
-        roles: user.roles,
+        provider: user?.provider ?? undefined,
+        password: hashedPassword ?? undefined,
+        roles: user?.roles ?? undefined,
+        isBlocked: user?.isBlocked ?? undefined,
       },
       create: {
         email: user.email,
@@ -39,6 +40,8 @@ export class UserService {
 
     await this.cacheManager.set(savedUser.id, savedUser);
     await this.cacheManager.set(savedUser.email, savedUser);
+
+    return savedUser;
   }
 
   async findOne(idOrEmail: string, isReset = false) {
